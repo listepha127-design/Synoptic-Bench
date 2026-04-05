@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore")
 
 LOCATIONS_JSON_PATH = "/home/hay3fm/Projects/NWS_AFD/preprocessing/locations.json"
 CHECKPOINT_INTERVAL = 20
+# ----------------
 
 def load_station_map(json_path):
     if not os.path.exists(json_path): return {}
@@ -25,7 +26,8 @@ def get_location_from_filename(filename, station_map):
         return "the forecast area"
 
 def main(args):
-    MODEL_PATH = "/scratch/hay3fm/qwen2-vl-weather-v1/final_merged_model-27000"
+    #MODEL_PATH = "/scratch/hay3fm/models/Qwen2-VL-7B"
+    MODEL_PATH = "/scratch/hay3fm/ablation/Qwen7B/merged_models/Qwen2-VL-7B-Instruct-weather-merged"
     
     if not os.path.exists(MODEL_PATH):
         print(f"⚠️ Local path {MODEL_PATH} not found. Defaulting to HF Hub.")
@@ -48,6 +50,7 @@ def main(args):
 
     with open(args.manifest_json, 'r') as f:
         test_data = json.load(f)
+    test_data = test_data[:10000]
         
     results = []
     processed_ids = set()
@@ -80,9 +83,7 @@ def main(args):
         location_name = get_location_from_filename(image_filename, station_map)
 
         prompt_text = (
-            f"Analyze these weather charts for {location_name}. "
-            "Charts show mean 2 meter temperature (shaded), 500 mb geopotential height (contours), "
-            "and 850 mb winds (barbs). Generate a detailed forecast discussion of the large-scale features."
+            f"Analyze these weather charts showing mean 2 meter temperature over the 2-day period (shaded contours), 500 mb geopotential height (unshaded contours), and 850 mb wind velocity (wind barbs) for the {location_name} forecast region and generate a detailed forecast discussion of the large-scale features relevant to the area. The forecast region is shown in the yellow box."
         )
 
         messages = [
@@ -115,9 +116,9 @@ def main(args):
         with torch.inference_mode():
             generated_ids = model.generate(
                 **inputs,
-                max_new_tokens=1024,
+                max_new_tokens=256,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.1,
                 top_p=0.9,
                 repetition_penalty=1.1
             )

@@ -7,8 +7,7 @@ import argparse
 from collections import defaultdict
 from tqdm import tqdm
 import statistics
-
-
+from collections import deque, defaultdict
 USE_TIME = False 
 LOCATION_WINDOW = 120 
 
@@ -47,36 +46,36 @@ NWS_STATIONS_COORDS = {
 
 
 STATION_NAME_MAP = {
-  "ABR": "Aberdeen, South Dakota", "ALY": "Albany, New York", "ABQ": "Albequerque, New Mexico", "AMA": "Amarillo, Texas", 
-  "APX": "Gaylord, Michigan", "ARX": "La Crosse, Wisconsin", "AKQ": "Wakefield, Virginia", "EWX": "Austin/San Antonio, Texas", 
-  "LWX": "Baltimore, Maryland", "BYZ": "Billings, Montana", "BGM": "Binghampton, New York", "BMX": "Birmingham, Alabama", 
-  "BIS": "Bismarck, North Dakota", "RNK": "Blacksburg, Virginia", "BOI": "Boise, Idaho", "BOX": "Boston, Massachusetts", 
-  "BRO": "Brownsville, Texas", "BUF": "Buffalo, New York", "BTV": "Burlington, Vermont", "CAR": "Caribou, Maine", 
-  "CHS": "Charleston, South Carolina", "RLX": "Charleston, West Virginia", "CYS": "Cheyenne, Wyoming", "LOT": "Chicago, Illinois", 
-  "CLE": "Cleveland, Ohio", "CAE": "Columbia, South Carolina", "CRP": "Corpus Christi, Texas", "FWD": "Dallas, Texas", 
-  "BOU": "Denver, Colorado", "DMX": "Des Moines, Iowa", "DTX": "Detroit, Michigan", "DDC": "Dodge City, Kansas", 
-  "DLH": "Duluth, Minnesota", "LKN": "Elko, Nevada", "EPZ": "El Paso, Texas", "EKA": "Eureka, California", 
-  "FGZ": "Flagstaff, Arizona", "GGW": "Glasgow, Montana", "GLD": "Goodland, Kansas", "FGF": "Grand Forks, North Dakota", 
-  "GJT": "Grand Junction, Colorado", "GRR": "Grand Rapids, Michigan", "GYX": "Gray, Maine", "TFX": "Great Falls, Montana", 
-  "GRB": "Green Bay, Wisconsin", "GSP": "Greenville, South Carolina", "GID": "Hastings, Nebraska", "HGX": "Houston/Galveston, Texas", 
-  "HUN": "Huntsville, Alabama", "IND": "Indianapolis, Indiana", "JAN": "Jackson, Mississippi", "JKL": "Jackson, Kentucky", 
-  "JAX": "Jacksonville, Florida", "EAX": "Kansas City, Missouri", "KEY": "Key West, Florida", "LCH": "Lake Charles, Louisiana", 
-  "VEF": "Las Vegas, Nevada", "ILX": "Lincoln, Illinois", "LZK": "Little Rock, Arkansas", "LOX": "Los Angeles, California", 
-  "LMK": "Louisville, Kentucky", "LUB": "Lubbock, Texas", "MQT": "Marquette, Michigan", "MFR": "Medford, Oregon", 
-  "MLB": "Melbourne, Florida", "MEG": "Memphis, Tennessee", "MFL": "Miami, Florida", "MAF": "Midland, Texas", 
-  "MKX": "Milwaukee, Wisconsin", "MSO": "Missoula, Montana", "MOB": "Mobile, Alabama", "MRX": "Morristown, Tennessee", 
-  "PHI": "Mount Holly, New Jersey", "OHX": "Nashville, Tennessee", "LIX": "New Orleans, Louisiana", "MHX": "Newport, North Carolina", 
-  "OKX": "New York City, New York", "OUN": "Norman, Oklahoma", "IWX": "Northern Indiana", "LBF": "North Platte, Nebraska", 
-  "OAX": "Omaha, Nebraska", "PAH": "Paducah, Kentucky", "FFC": "Peachtree City, Georgia", "PDT": "Pendleton, Oregon", 
-  "PSR": "Phoenix, Arizona", "PBZ": "Pittsburgh, Pennsylvania", "PIH": "Pocatello, Idaho", "PQR": "Portland, Oregon", 
-  "PUB": "Pueblo, Colorado", "DVN": "Quad Cities, Iowa/Illinois", "RAH": "Raleigh, North Carolina", "UNR": "Rapid City, South Dakota", 
-  "REV": "Reno, Nevada", "RIW": "Riverton, Wyoming", "STO": "Sacramento, California", "SLC": "Salt Lake City, Utah", 
-  "SJT": "San Angelo, Texas", "SGX": "San Diego, California", "MTR": "San Francisco, California", "HNX": "San Joaquin Valley, California", 
-  "TJSJ": "San Juan, Puerto Rico", "SEW": "Seattle, Washington", "SHV": "Shreveport, Louisiana", "FSD": "Sioux Falls, South Dakota", 
-  "OTX": "Spokane, Washington", "SGF": "Springfield, Missouri", "CTP": "State College, Pennsylvania", "LSX": "St. Louis, Missouri", 
-  "TAE": "Tallahassee, Florida", "TBW": "Tampa, Florida", "TOP": "Topeka, Kansas", "TWC": "Tucson, Arizona", 
-  "TSA": "Tulsa, Oklahoma", "MPX": "Twin Cities, Minnesota", "ICT": "Wichita, Kansas", "ILM": "Wilmington, North Carolina", 
-  "ILN": "Wilmington, Ohio"
+  "ABR": "South Dakota", "ALY": "New York", "ABQ": "New Mexico", "AMA": "Texas", 
+  "APX": "Michigan", "ARX": "Wisconsin", "AKQ": "Virginia", "EWX": "Texas", 
+  "LWX": "Maryland", "BYZ": "Montana", "BGM": "New York", "BMX": "Alabama", 
+  "BIS": "North Dakota", "RNK": "Virginia", "BOI": "Idaho", "BOX": "Massachusetts", 
+  "BRO": "Texas", "BUF": "New York", "BTV": "Vermont", "CAR": "Maine", 
+  "CHS": "South Carolina", "RLX": "West Virginia", "CYS": "Wyoming", "LOT": "Illinois", 
+  "CLE": "Ohio", "CAE": "South Carolina", "CRP": "Texas", "FWD": "Texas", 
+  "BOU": "Colorado", "DMX": "Iowa", "DTX": "Michigan", "DDC": "Kansas", 
+  "DLH": "Minnesota", "LKN": "Nevada", "EPZ": "Texas", "EKA": "California", 
+  "FGZ": "Arizona", "GGW": "Montana", "GLD": "Kansas", "FGF": "North Dakota", 
+  "GJT": "Colorado", "GRR": "Michigan", "GYX": "Maine", "TFX": "Montana", 
+  "GRB": "Wisconsin", "GSP": "South Carolina", "GID": "Nebraska", "HGX": "Texas", 
+  "HUN": "Alabama", "IND": "Indiana", "JAN": "Mississippi", "JKL": "Kentucky", 
+  "JAX": "Florida", "EAX": "Missouri", "KEY": "Florida", "LCH": "Louisiana", 
+  "VEF": "Nevada", "ILX": "Illinois", "LZK": "Arkansas", "LOX": "California", 
+  "LMK": "Kentucky", "LUB": "Texas", "MQT": "Michigan", "MFR": "Oregon", 
+  "MLB": "Florida", "MEG": "Tennessee", "MFL": "Florida", "MAF": "Texas", 
+  "MKX": "Wisconsin", "MSO": "Montana", "MOB": "Alabama", "MRX": "Tennessee", 
+  "PHI": "New Jersey", "OHX": "Tennessee", "LIX": "Louisiana", "MHX": "North Carolina", 
+  "OKX": "New York", "OUN": "Oklahoma", "IWX": "Indiana", "LBF": "Nebraska", 
+  "OAX": "Nebraska", "PAH": "Kentucky", "FFC": "Georgia", "PDT": "Oregon", 
+  "PSR": "Arizona", "PBZ": "Pennsylvania", "PIH": "Idaho", "PQR": "Oregon", 
+  "PUB": "Colorado", "DVN": "Iowa", "RAH": "North Carolina", "UNR": "South Dakota", 
+  "REV": "Nevada", "RIW": "Wyoming", "STO": "California", "SLC": "Utah", 
+  "SJT": "Texas", "SGX": "California", "MTR": "California", "HNX": "California", 
+  "TJSJ": "Puerto Rico", "SEW": "Washington", "SHV": "Louisiana", "FSD": "South Dakota", 
+  "OTX": "Washington", "SGF": "Missouri", "CTP": "Pennsylvania", "LSX": "Missouri", 
+  "TAE": "Florida", "TBW": "Florida", "TOP": "Kansas", "TWC": "Arizona", 
+  "TSA": "Oklahoma", "MPX": "Minnesota", "ICT": "Kansas", "ILM": "North Carolina", 
+  "ILN": "Ohio"
 }
 
 
@@ -96,14 +95,14 @@ WEATHER_PHENOMENA = {
     'precipitation': ['rain', 'rains', 'drizzle', 'showers', 'precipitation', 'precip', 'downpours', 'sprinkles', 'sleet', 'snow', 'flurries', 'hail', 'ice pellets','flooding', 'flood', 'inundation', 'flash flood'],
     'wind': ['wind', 'gusts', 'breezy', 'gale', 'squalls'],
     'temperature': ['heat', 'warmth', 'cold', 'chill'], 
-    'pressure_systems': ['ridge', 'ridging', 'trough', 'upper high', 'upper low', 'troughing', 'high pressure', 'low pressure', 'high-pressure', 'low-pressure', 'cyclone', 'anticyclone', 'closed low', 'blocking', 'cut-off low', 'advancing low', 'advancing high'], 
+    'pressure_systems': ['ridge', 'the high', 'this high', 'upper level low', 'upper level high', 'the low', 'this low', 'ridging', 'upper high', 'upper low' 'trough', 'troughing', 'high pressure', 'low pressure', 'high-pressure', 'low-pressure', 'cyclone', 'anticyclone', 'closed low', 'blocking', 'cut-off low'], 
     'clouds_visibility': ['fog', 'mist', 'haze', 'clouds', 'cloudy', 'overcast', 'visibility'],
     'severe': ['tornado', 'watersout', 'derecho', 'blizzard']
 }
 
 PRESSURE_POLARITY = {
-    "HIGH": ['ridge', 'high pressure', 'high-pressure', 'anticyclone', 'upper high', 'blocking', 'ridging'],
-    "LOW": ['trough', 'low pressure', 'low-pressure', 'upper low', 'cyclone', 'closed low', 'cut-off low', 'troughing']
+    "HIGH": ['ridge', 'the high', 'this high', 'upper level high', 'high pressure', 'high-pressure', 'upper high', 'anticyclone', 'blocking', 'ridging'],
+    "LOW": ['trough', 'trof', 'the low', 'this low', 'upper level low' 'low pressure', 'low-pressure', 'upper low', 'cyclone', 'closed low', 'cut-off low', 'troughing']
 }
 
 PROBABILITY_MODIFIERS = ['light', 'slight', 'some', 'chance', 'chances', 'possible', 'likely', 'potential', 'isolated', 'scattered']
@@ -203,7 +202,7 @@ def analyze_weather_text(text):
                     if dist < min_dist:
                         min_dist = dist
                         best_loc_raw = loc['raw']
-            
+
             if best_loc_raw is None:
                 continue
 
@@ -222,71 +221,148 @@ def analyze_weather_text(text):
     return extracted_data
 
 
-def calculate_space_aggregate_score(pred_objs, ref_objs):
-    pred_objs = [o for o in pred_objs if get_pressure_polarity(o['phenomenon']) in ['HIGH', 'LOW']]
-    ref_objs = [o for o in ref_objs if get_pressure_polarity(o['phenomenon']) in ['HIGH', 'LOW']]
-
-    def get_unique_systems_and_counts(obj_list):
-        unique_systems = set()
-        location_counts = defaultdict(lambda: {'HIGH': 0, 'LOW': 0})
+def normalize_location_name(loc, hierarchy_map):
+    """Fixes case sensitivity for 2-letter states and matches JSON keys."""
+    loc = loc.strip()
+    if len(loc) == 2:
+        loc = loc.upper()
         
-        for obj in obj_list:
-            polarity = get_pressure_polarity(obj['phenomenon'])
-            loc = obj['location']
-            
-            parent_loc = loc
-            if loc in HIERARCHY_MAP:
-                parents = HIERARCHY_MAP[loc].get('parents', [])
-                if parents: parent_loc = parents[0]
-            else:
-                for k in HIERARCHY_MAP:
-                    if k.lower() == loc.lower():
-                        parents = HIERARCHY_MAP[k].get('parents', [])
-                        if parents: parent_loc = parents[0]
-                        break
-            
-            unique_systems.add((parent_loc, polarity))
-            location_counts[parent_loc][polarity] += 1
-            
-        return unique_systems, location_counts
+    if loc not in hierarchy_map:
+        for k in hierarchy_map:
+            if k.lower() == loc.lower():
+                return k
+    return loc
 
-    pred_set, pred_counts = get_unique_systems_and_counts(pred_objs)
-    ref_set, ref_counts = get_unique_systems_and_counts(ref_objs)
+def calculate_graph_distance(loc1, loc2, hierarchy_map, max_hops=3, stop_nodes=None):
+    """Calculates multidirectional hops while avoiding massive hub nodes."""
+    if stop_nodes is None:
+        stop_nodes = {"Canada", "CONUS", "Eastern Canada", "Central Canada", "Western Canada", "Eastern CONUS", "Western CONUS", "Central CONUS", "Central Plains", "Ohio Valley", "Great Lakes", "Central U.S.", "Eastern U.S.", "Western U.S.", "Central United States", "Eastern United States", "Western United States", "Central U", "Eastern U", "Western U", "Eastern US", "Western US", "Central US", "Midwest", "The Plains"}
 
-    intersection = pred_set.intersection(ref_set)
-    union = pred_set.union(ref_set)
+    if loc1 == loc2: return 0
+    if loc1 not in hierarchy_map and loc2 not in hierarchy_map: 
+        return float('inf')
+
+    queue = deque([(loc1, 0)])
+    visited = {loc1}
+
+    while queue:
+        current_node, current_dist = queue.popleft()
+
+        if current_node == loc2:
+            return current_dist
+        if current_dist >= max_hops:
+            continue
+        if current_node in stop_nodes and current_node != loc1:
+            continue
+
+        neighbors = set()
+        neighbors.update(hierarchy_map.get(current_node, {}).get('parents', []))
+        neighbors.update(hierarchy_map.get(current_node, {}).get('siblings', []))
+        for potential_child, data in hierarchy_map.items():
+            if current_node in data.get('parents', []):
+                neighbors.add(potential_child)
+
+        for neighbor in neighbors:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, current_dist + 1))
+
+    return float('inf')
+
+def calculate_space_aggregate_score(pred_objs_raw, ref_objs_raw):
+    def clean_objects(raw_objs):
+        cleaned = []
+        for o in raw_objs:
+            pol = get_pressure_polarity(o['phenomenon'])
+            if pol not in ['HIGH', 'LOW']: continue
+            if not o['location']: continue
+            
+            c_loc = normalize_location_name(o['location'], HIERARCHY_MAP)
+            cleaned.append({'polarity': pol, 'clean_loc': c_loc, 'raw': o})
+        return cleaned
+
+    pred_objs = clean_objects(pred_objs_raw)
+    ref_objs = clean_objects(ref_objs_raw)
+
+    if not pred_objs and not ref_objs:
+        return None  
+
+    all_unique_locs = list(set([p['clean_loc'] for p in pred_objs] + [r['clean_loc'] for r in ref_objs]))
     
-    if len(union) == 0:
-        coverage_ratio = 1.0 
-    else:
-        coverage_ratio = len(intersection) / len(union)
-    
-    location_accuracies = []
-    
-    common_locations = set(pred_counts.keys()) & set(ref_counts.keys())
-    
-    for loc in common_locations:
-        p_data = pred_counts[loc]
-        r_data = ref_counts[loc]
+    DISTANCE_THRESHOLD = 2 
+    parent_map = {loc: loc for loc in all_unique_locs}
+
+    def find(loc):
+        if parent_map[loc] != loc:
+            parent_map[loc] = find(parent_map[loc])
+        return parent_map[loc]
+
+    def union(loc1, loc2):
+        root1 = find(loc1)
+        root2 = find(loc2)
+        if root1 != root2:
+            parent_map[root2] = root1
+
+    STOP_LOCATIONS = {"Canada", "CONUS", "Eastern Canada", "Central Canada", "Western Canada", "Eastern CONUS", "Western CONUS", "Central CONUS", "Central Plains", "Ohio Valley", "Great Lakes", "Central U.S.", "Eastern U.S.", "Western U.S.", "Central United States", "Eastern United States", "Western United States", "Central U", "Eastern U", "Western U", "Eastern US", "Western US", "Central US", "Midwest", "The Plains"}
+    for i in range(len(all_unique_locs)):
+        for j in range(i + 1, len(all_unique_locs)):
+            loc1 = all_unique_locs[i]
+            loc2 = all_unique_locs[j]
+            
+            dist = calculate_graph_distance(loc1, loc2, HIERARCHY_MAP)
+            
+            current_threshold = DISTANCE_THRESHOLD 
+            if loc1 in STOP_LOCATIONS or loc2 in STOP_LOCATIONS:
+                current_threshold = 1
+                
+            if dist <= current_threshold:
+                union(loc1, loc2)
+                continue
+                
+            loc1_siblings = HIERARCHY_MAP.get(loc1, {}).get('siblings', [])
+            loc2_siblings = HIERARCHY_MAP.get(loc2, {}).get('siblings', [])
+            
+            if loc2 in loc1_siblings or loc1 in loc2_siblings:
+                union(loc1, loc2)
+
+    loc_clusters = defaultdict(lambda: {'preds': [], 'refs': []})
+    for p in pred_objs:
+        loc_clusters[find(p['clean_loc'])]['preds'].append(p)
+    for r in ref_objs:
+        loc_clusters[find(r['clean_loc'])]['refs'].append(r)
+
+    def get_low_ratio(obj_list):
+        if not obj_list: return 0.5 
+        low_count = sum(1 for o in obj_list if o['polarity'] == 'LOW')
+        return low_count / len(obj_list)
+
+    cluster_scores = []
+    matched_objects_count = 0
+
+    for root_key, data in loc_clusters.items():
+        local_preds = data['preds']
+        local_refs = data['refs']
         
-        n_p = p_data['HIGH'] + p_data['LOW']
-        n_r = r_data['HIGH'] + r_data['LOW']
-        
-        if n_p > 0 and n_r > 0:
-            ratio_pred = p_data['LOW'] / n_p
-            ratio_ref = r_data['LOW'] / n_r
+        if len(local_preds) > 0 and len(local_refs) > 0:
+            matched_objects_count += len(local_preds) + len(local_refs)
+            p_ratio = get_low_ratio(local_preds)
+            r_ratio = get_low_ratio(local_refs)
+            local_score = 1.0 - abs(p_ratio - r_ratio)
             
-            acc = 1.0 - abs(ratio_pred - ratio_ref)
-            location_accuracies.append(acc)
+        else:
+            local_score = 0.5
 
-    if not location_accuracies:
-        match_score = 1.0 if len(union) == 0 else 0.0
-    else:
-        match_score = sum(location_accuracies) / len(location_accuracies)
+        cluster_scores.append(local_score)
+
+    match_score = sum(cluster_scores) / len(cluster_scores) if cluster_scores else 0.0
+
+    total_objects = len(pred_objs) + len(ref_objs)
+    coverage_ratio = (matched_objects_count / total_objects) if total_objects > 0 else 1.0
 
     final_space = match_score * coverage_ratio
-    
+
     return final_space, match_score, coverage_ratio
+
 
 def calculate_stats(values):
     """Returns (mean, stdev) for a list of numbers."""
@@ -297,6 +373,7 @@ def calculate_stats(values):
     else:
         stdev_val = 0.0
     return mean_val, stdev_val
+
 
 
 def get_event_key(sample_id):
@@ -359,13 +436,11 @@ def main(input_file, output_file):
     mean_cov, std_cov = calculate_stats(coverage_scores)
     mean_match, std_match = calculate_stats(match_scores)
 
-    print("\n" + "="*50)
-    print("="*50)
+    print(f"FINAL AGGREGATE RESULTS ({len(results)} valid events)")
     print(f"SPACE Score:    {mean_space:.4f} ± {std_space:.4f}")
     print(f"Coverage Ratio: {mean_cov:.4f}   ± {std_cov:.4f}")
     print(f"Match Accuracy: {mean_match:.4f} ± {std_match:.4f}")
     print(f"Ignored Events: {ignored_events}")
-    print("="*50)
 
     output_data = {
         "summary": {

@@ -8,7 +8,9 @@ Recent advances in visual-language models (VLMs) have led to significant improve
 - [Model Weights](#Pretrained_models)
 - [Dataset](#Example_data)
 - [Train](#train)
-- [Evaluation](#SPACE)
+- [SPACE Evaluation](#SPACE)
+- [Traditional Evaluation](#Traditional_Eval)
+
 
 
 ## Model Weights

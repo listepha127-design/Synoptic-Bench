@@ -11,6 +11,9 @@ import math
 import nltk
 from collections import deque
 
+# ==========================================
+# PART 1: CONFIGURATION & LISTS
+# ==========================================
 
 USE_TIME = False 
 LOCATION_WINDOW = 120 
@@ -141,7 +144,8 @@ STATE_ABBREVIATION_MAP = {
     'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
 }
 
-
+# 2. CREATE A "SAFE" TEXT SEARCH LIST
+# We omit abbreviations that are common English words, prepositions, or units.
 DANGEROUS_ABBREVS = {'IN', 'OR', 'ME', 'HI', 'MA', 'PA', 'LA', 'AL', 'OK', 'ID', 'AR', 'MI'}
 SAFE_STATE_ABBREVIATIONS = [abbr for abbr in STATE_ABBREVIATION_MAP.keys() if abbr not in DANGEROUS_ABBREVS]
 
@@ -239,13 +243,16 @@ def normalize_location_name(loc, hierarchy_map):
     Ex: "Upper Ohio Valley" -> "Ohio Valley"
     """
     loc = loc.strip()
+    # Add this 2-letter fix at the very top!
     if len(loc) == 2:
         loc = loc.upper()
     if not loc: return None
     
+    # If the exact location is already known, return it
     if loc in hierarchy_map:
         return loc
 
+    # List of prefixes to strip
     prefixes = [
         "Upper", "Lower", "Central", "Middle", "Greater", 
         "Northern", "Southern", "Eastern", "Western", 
@@ -254,22 +261,28 @@ def normalize_location_name(loc, hierarchy_map):
     
     parts = loc.split()
     if len(parts) > 1 and parts[0] in prefixes:
+        # Try stripping the first word (e.g. "Upper Ohio Valley" -> "Ohio Valley")
         stripped = " ".join(parts[1:])
         if stripped in hierarchy_map:
             return stripped
             
     return loc
 
+# ==========================================
+# UPDATED: Cluster ID (Handles Siblings)
+# ==========================================
 def get_cluster_id(loc, hierarchy_map):
     """
     1. Normalizes the name (Upper Ohio Valley -> Ohio Valley).
     2. Finds the Root (Parent traversal).
     3. CHECKS SIBLINGS to ensure they share the same ID.
     """
+    # 1. Normalize
     clean_loc = normalize_location_name(loc, hierarchy_map)
     
     if not clean_loc: return "UNKNOWN"
     
+    # 2. Find Root (Walk up parents)
     current = clean_loc
     visited = set()
     while current in hierarchy_map:
@@ -282,11 +295,16 @@ def get_cluster_id(loc, hierarchy_map):
     
     root = current
     
+    # 3. Sibling Check (The "Sideways" Fix)
+    # If this root has siblings, we need a consistent ID for all of them.
+    # We sort all siblings + the root alphabetically and pick the first one.
+    # This ensures "Great Lakes" and "Ohio Valley" both get the same ID (e.g. "Great Lakes")
     if root in hierarchy_map:
         siblings = hierarchy_map[root].get('siblings', [])
         if siblings:
+            # Create a group of [Root, Sibling1, Sibling2...]
             cluster_group = sorted([root] + siblings)
-            return cluster_group[0] 
+            return cluster_group[0] # Return the alphabetical leader as the ID
 
     return root
 
@@ -359,11 +377,14 @@ def analyze_weather_text(text):
     extracted_data = []
     sentences = split_into_sentences(text)
 
+    # 1. Flatten your PRESSURE_POLARITY dict for efficient searching
+    # We map every keyword back to its Category (HIGH/LOW) and create a sorting list
     pressure_map = {}
     for polarity, keywords in PRESSURE_POLARITY.items():
         for kw in keywords:
             pressure_map[kw.lower()] = polarity
 
+    # Sort by length (descending) to match "Upper Level Low" before "Low"
     sorted_pressure_terms = sorted(pressure_map.keys(), key=len, reverse=True)
 
     for sentence in sentences:
@@ -372,46 +393,66 @@ def analyze_weather_text(text):
 
         sentence_lower = sentence.lower()
         
+        # --- A. Extract Locations First ---
         locations_in_sentence = extract_locations_with_indices(sentence)
-        times = extract_time(sentence) 
+        times = extract_time(sentence) # Grab time once per sentence
         
+        # --- B. Extract Pressure Systems ---
         pressure_matches = []
         claimed_indices = set()
 
         for term in sorted_pressure_terms:
+            # Regex \b ensures we don't match "low" inside "slow"
+            # escape(term) allows terms like "high-pressure" to work safely
             pattern = r'\b' + re.escape(term) + r'\b'
             
             for match in re.finditer(pattern, sentence_lower):
+                # Overlap Check
                 indices = set(range(match.start(), match.end()))
                 if not indices.intersection(claimed_indices):
                     pressure_matches.append({
-                        'term': term, 
-                        'polarity': pressure_map[term], 
+                        'term': term, # The raw text found
+                        'polarity': pressure_map[term], # HIGH or LOW
                         'start': match.start(),
                         'end': match.end(),
                         'center': (match.start() + match.end()) / 2
                     })
                     claimed_indices.update(indices)
 
+        # Sort pressures by start index (reading order)
         pressure_matches.sort(key=lambda x: x['start'])
 
+        # --- C. The Pairing Logic (Forward-Only, Multi-Match) ---
         for press in pressure_matches:
             
+            # Find ALL locations that appear AFTER this pressure system
+            # Logic: Location Start Index > Pressure End Index
             valid_locs = [
                 loc for loc in locations_in_sentence 
                 if loc['start'] > press['end']
             ]
 
+            # If NO locations match, we still want to record the pressure system
+            # (Context: You might want to know a system exists even if it has no location)
             if not valid_locs:
+                # Optional: Uncomment if you want to track systems with "UNKNOWN" location
+                # extracted_data.append({
+                #     'phenomenon': press['term'],
+                #     'category': 'pressure_systems',
+                #     'polarity': press['polarity'],
+                #     'location': None, 
+                #     'sentence': sentence
+                # })
                 continue 
 
+            # Create an entry for EVERY valid location
             for loc in valid_locs:
                 extracted_data.append({
-                    'phenomenon': press['term'], 
+                    'phenomenon': press['term'], # e.g. "trough"
                     'category': 'pressure_systems',
-                    'polarity': press['polarity'], 
+                    'polarity': press['polarity'], # e.g. "LOW"
                     'time': times,
-                    'location': loc['name'], 
+                    'location': loc['name'], # e.g. "Great Lakes"
                     'sentence': sentence,
                     'start_index': press['start']
                 })
@@ -422,19 +463,23 @@ def analyze_weather_text(text):
 def extract_state_from_meta(meta_location, sample_id=None):
     """Prioritizes the station ID from the JSON 'id' field, uses meta_location as fallback."""
     
+    # 1. PRIMARY: Extract the 3-letter code from the ID string (e.g., "FGF_feb...")
     if sample_id:
         station_code = str(sample_id).split('_')[0].upper()
         if station_code in STATION_NAME_MAP:
             return STATION_NAME_MAP[station_code]
 
+    # 2. FALLBACK: Parse the location string (e.g., "Grand Forks, North Dakota")
     if not meta_location: return None
     
     parts = meta_location.split(',')
     state_candidate = parts[-1].strip().title() # .title() converts "NORTH DAKOTA" to "North Dakota"
     
+    # Check if it's a known full state name
     if state_candidate in STATES:
         return state_candidate
         
+    # Check if it's a 2-letter abbreviation
     if state_candidate.upper() in STATE_ABBREVIATION_MAP:
         return STATE_ABBREVIATION_MAP[state_candidate.upper()]
             
@@ -445,13 +490,16 @@ def resolve_local_context(loc, meta_location, sample_id=None):
     
     l_clean = loc.strip().lower()
     
+    # Pass the sample_id in!
     context_state = extract_state_from_meta(meta_location, sample_id) 
     
+    # 1. Coastal logic
     if l_clean in ["the coast", "the coastline", "coast", "coastal"]:
         if context_state in COAST_STATE_GROUPS.get("West Coast", []): return "West Coast"
         if context_state in COAST_STATE_GROUPS.get("East Coast", []): return "East Coast"
         if context_state in COAST_STATE_GROUPS.get("Gulf Coast", []): return "Gulf Coast"
 
+    # 2. CHECK SYNONYMS ("The State", "Here")
     is_synonym = l_clean in [t.lower() for t in LOCAL_CONTEXT_TERMS]
     
     if is_synonym and context_state:
@@ -459,7 +507,9 @@ def resolve_local_context(loc, meta_location, sample_id=None):
 
     return loc.strip()
 
-
+# ==========================================
+# 3. HIERARCHY LOGIC (Siblings/Cousins)
+# ==========================================
 def get_canonical_root(loc, hierarchy_map):
     """
     Walks up the hierarchy tree until it hits a root node.
@@ -469,22 +519,28 @@ def get_canonical_root(loc, hierarchy_map):
     current = loc
     visited = set()
     
+    # If not in map, return itself (it is its own root)
     if current not in hierarchy_map:
         return current
 
+    # Traverse up
     while current in hierarchy_map:
-        if current in visited: break 
+        if current in visited: break # Safety break
         visited.add(current)
         
         parents = hierarchy_map[current].get('parents', [])
         if not parents:
+            # No parents = this is the root
             return current
         
+        # Move up to the first parent
         current = parents[0]
         
     return current
 
-
+# ==========================================
+# 4. SCORING FUNCTION (With Debugging)
+# ==========================================
 def get_lineage(loc, hierarchy_map):
     """
     Returns a list representing the path from the location to the top root.
@@ -502,6 +558,8 @@ def get_lineage(loc, hierarchy_map):
         if not parents:
             break
         
+        # Determine the primary parent (first one)
+        # You might need the case-insensitive helper here if keys are messy
         parent = parents[0] 
         path.append(parent)
         current = parent
@@ -514,6 +572,7 @@ def calculate_graph_distance(loc1, loc2, hierarchy_map, max_hops=4, stop_nodes=N
     Prevents traversing *through* massive hub nodes (like 'Canada' or 'US') 
     to stop distant locations from improperly clustering.
     """
+    # Define your massive hub nodes here
     if stop_nodes is None:
         stop_nodes = {"Canada", "CONUS", "Eastern Canada", "Central Canada", "Western Canada", "Eastern CONUS", "Western CONUS", "Central CONUS", "Central Plains", "Ohio Valley", "Great Lakes", "Central U.S.", "Eastern U.S.", "Western U.S.", "Central United States", "Eastern United States", "Western United States", "Central U", "Eastern U", "Western U", "Eastern US", "Western US", "Central US", "Midwest", "The Plains"}
 
@@ -521,42 +580,57 @@ def calculate_graph_distance(loc1, loc2, hierarchy_map, max_hops=4, stop_nodes=N
     if loc1 not in hierarchy_map and loc2 not in hierarchy_map: 
         return float('inf')
 
+    # Queue stores: (current_location, current_distance_in_hops)
     queue = deque([(loc1, 0)])
     visited = {loc1}
 
     while queue:
         current_node, current_dist = queue.popleft()
 
+        # If we reached the target, return the distance!
         if current_node == loc2:
             return current_dist
 
+        # Stop exploring if we hit the maximum allowed hops
         if current_dist >= max_hops:
             continue
 
+        # THE FIX: If this node is a massive hub (and not our starting location),
+        # do not let the search use it as a bridge to discover other places.
         if current_node in stop_nodes and current_node != loc1:
             continue
 
+        # Gather ALL valid next steps (Parents, Siblings, and Children)
         neighbors = set()
         
+        # 1. Hop up to Parents
         parents = hierarchy_map.get(current_node, {}).get('parents', [])
         neighbors.update(parents)
         
+        # 2. Hop sideways to Siblings
         siblings = hierarchy_map.get(current_node, {}).get('siblings', [])
         neighbors.update(siblings)
         
+        # 3. Hop down to Children 
         for potential_child, data in hierarchy_map.items():
             if current_node in data.get('parents', []):
                 neighbors.add(potential_child)
 
+        # Explore the gathered neighbors
         for neighbor in neighbors:
             if neighbor not in visited:
                 visited.add(neighbor)
                 queue.append((neighbor, current_dist + 1))
 
+    # If the queue empties and we never found loc2
     return float('inf')
 
+# ==========================================
+# REPLACED: SCORING FUNCTION (Pairwise)
+# ==========================================
 
 def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, sample_id=None):
+    # --- 1. PRE-PROCESSING & CLEANING ---
     def clean_objects(raw_objs):
         cleaned = []
         for o in raw_objs:
@@ -565,6 +639,7 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
             if pol not in ['HIGH', 'LOW']: continue
             if not o['location']: continue
             
+            # --- START DEBUG BLOCK ---
             raw_loc = o['location']
             if raw_loc.lower() in ["here", "the state"]:
                 print(f"\n[DEBUG] -----------------")
@@ -577,6 +652,7 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
                 
                 r_loc = resolve_local_context(raw_loc, meta_location, sample_id)
                 print(f"[DEBUG] resolve_local_context returned: '{r_loc}'")
+            # --- END DEBUG BLOCK ---
 
             r_loc = resolve_local_context(o['location'], meta_location, sample_id)
             c_loc = normalize_location_name(r_loc, HIERARCHY_MAP)
@@ -588,12 +664,14 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
     ref_objs = clean_objects(ref_objs_raw)
 
     if not pred_objs and not ref_objs:
-        return None  
+        return None  # Skip empty samples
 
-
+    # --- 2. GRAPH CLUSTERING (The Fix!) ---
+    # Gather ALL unique locations present in this specific sample
     
     all_unique_locs = list(set([p['clean_loc'] for p in pred_objs] + [r['clean_loc'] for r in ref_objs]))
     if sample_id is not None: 
+        print(f"\n--- TREE DISTANCE DEBUG FOR SAMPLE {sample_id} ---")
         for loc in all_unique_locs:
             print(f"Lineage of '{loc}': {get_lineage(loc, HIERARCHY_MAP)}")
         
@@ -606,6 +684,7 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
                 print(f"  {loc1} <-> {loc2} = {dist} hops")
         print("---------------------------------------")
     
+    # We will use a Disjoint Set Union (DSU) to group locations that are close to each other
     DISTANCE_THRESHOLD = 2
     parent_map = {loc: loc for loc in all_unique_locs}
 
@@ -620,14 +699,17 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
         if root1 != root2:
             parent_map[root2] = root1
 
+    # Compare every location to every other location. If they are close, merge them!
     STOP_LOCATIONS = {"Canada", "CONUS", "Eastern Canada", "Central Canada", "Western Canada", "Eastern CONUS", "Western CONUS", "Central CONUS", "Central Plains", "Ohio Valley", "Great Lakes", "Central U.S.", "Eastern U.S.", "Western U.S.", "Central United States", "Eastern United States", "Western United States", "Central U", "Eastern U", "Western U", "Eastern US", "Western US", "Central US", "Midwest", "The Plains"}
     for i in range(len(all_unique_locs)):
         for j in range(i + 1, len(all_unique_locs)):
             loc1 = all_unique_locs[i]
             loc2 = all_unique_locs[j]
             
+            # --- Condition A: They are close via the Parent Tree ---
             dist = calculate_graph_distance(loc1, loc2, HIERARCHY_MAP)
             
+            # Dynamically adjust the threshold if one of the endpoints is a stop location
             current_threshold = DISTANCE_THRESHOLD # Normally 2
             if loc1 in STOP_LOCATIONS or loc2 in STOP_LOCATIONS:
                 current_threshold = 1
@@ -636,12 +718,14 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
                 union(loc1, loc2)
                 continue
                 
+            # --- Condition B: The JSON explicitly lists them as siblings ---
             loc1_siblings = HIERARCHY_MAP.get(loc1, {}).get('siblings', [])
             loc2_siblings = HIERARCHY_MAP.get(loc2, {}).get('siblings', [])
             
             if loc2 in loc1_siblings or loc1 in loc2_siblings:
                 union(loc1, loc2)
 
+    # Build the clusters based on their unified graph roots
     loc_clusters = defaultdict(lambda: {'p_idxs': set(), 'r_idxs': set()})
 
     for i, p in enumerate(pred_objs):
@@ -652,6 +736,7 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
         cluster_root = find(r['clean_loc'])
         loc_clusters[cluster_root]['r_idxs'].add(j)
 
+    # --- 3. SCORING (Local Average) ---
     def get_low_ratio(obj_list):
         if not obj_list: return 0.5 
         low_count = sum(1 for o in obj_list if o['polarity'] == 'LOW')
@@ -665,6 +750,7 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
         p_idx_set = indices['p_idxs']
         r_idx_set = indices['r_idxs']
         
+        # COVERAGE LOGIC: A match is only made if BOTH texts contributed to this cluster
         if len(p_idx_set) > 0 and len(r_idx_set) > 0:
             global_matched_pred_indices.update(p_idx_set)
             global_matched_ref_indices.update(r_idx_set)
@@ -680,16 +766,30 @@ def calculate_space_pressure_score(pred_objs_raw, ref_objs_raw, meta_location, s
 
     match_score = sum(cluster_scores) / len(cluster_scores) if cluster_scores else 0.0
 
+    # --- 4. COVERAGE CALCULATION ---
     total_objects = len(pred_objs) + len(ref_objs)
     matched_objects = len(global_matched_pred_indices) + len(global_matched_ref_indices)
 
     coverage_ratio = (matched_objects / total_objects) if total_objects > 0 else 1.0
     final_space = match_score * coverage_ratio
 
+    # --- DEBUG PRINT ---
+    if sample_id is not None:
+        print(f"\n--- DEBUG SAMPLE {sample_id} ---")
+        print(f"Preds: {[p['polarity'] + '@' + p['clean_loc'] for p in pred_objs]}")
+        print(f"Refs : {[r['polarity'] + '@' + r['clean_loc'] for r in ref_objs]}")
+        print(f"Clusters Evaluated (Unified Roots): {list(loc_clusters.keys())}")
+        for k, v in loc_clusters.items():
+             p_debug = [pred_objs[i]['polarity'] + '@' + pred_objs[i]['clean_loc'] for i in v['p_idxs']]
+             r_debug = [ref_objs[i]['polarity'] + '@' + ref_objs[i]['clean_loc'] for i in v['r_idxs']]
+             print(f"  > Super-Cluster '{k}': Preds={p_debug} Refs={r_debug}")
+        print(f"Avg Match Score: {match_score:.2f} | Coverage: {coverage_ratio:.2f}")
 
     return final_space, match_score, coverage_ratio
 
-
+# ==========================================
+# UPDATED EXECUTION LOOP
+# ==========================================
 def process_dataset(input_file, output_file):
     if not os.path.exists(input_file):
         print(f"Input file not found: {input_file}")
@@ -703,14 +803,17 @@ def process_dataset(input_file, output_file):
         print("Error: Invalid JSON file.")
         return
     
+    # --- LIMIT TO TEST SAMPLES (Remove [:10] when ready for full run) ---
     original_len = len(data)
-    data = data[:] 
+    data = data[:10] 
+    print(f"Data limited to {len(data)} samples (Original: {original_len})")
     
     results = []
     
-    space_list = []         
-    coverage_list = []       
-    conditional_match_list = [] 
+    # We need separate lists now
+    space_list = []          # All samples
+    coverage_list = []       # All samples
+    conditional_match_list = [] # ONLY samples with coverage > 0
     
     ignored_count = 0
     start_time = time.time()
@@ -723,24 +826,33 @@ def process_dataset(input_file, output_file):
         pred_objs = analyze_weather_text(pred_text)
         ref_objs = analyze_weather_text(ref_text)
         
+        # --- THE FIX IS HERE ---
+        # 1. Grab the actual ID string from your JSON (Fallback to 'None' if missing)
         actual_record_id = sample.get('id', None)
         
+        # 2. Pass actual_record_id into the updated record_id parameter!
         metrics = calculate_space_pressure_score(
             pred_objs, 
             ref_objs, 
             sample.get('location'), 
             sample_id=actual_record_id
         )
+        # -----------------------
         
         if metrics is None:
+            # Both Prediction and Reference were empty (no weather to score)
             ignored_count += 1
             continue 
 
         space, match, cov = metrics
         
+        # 1. Always track SPACE and Coverage (Global metrics)
         space_list.append(space)
         coverage_list.append(cov)
         
+        # 2. CONDITIONAL MATCH SCORE
+        # Only include the match score if we actually found a matching location.
+        # This answers: "When we DO find the location, how often is the Pressure correct?"
         if cov > 0:
             conditional_match_list.append(match)
 
@@ -749,9 +861,10 @@ def process_dataset(input_file, output_file):
             "score": space, 
             "match_score": match, 
             "coverage_ratio": cov,
-            "included_in_match_avg": (cov > 0) 
+            "included_in_match_avg": (cov > 0) # Helpful flag for CSV analysis
         })
     
+    # Helper for stats
     def get_stats_sem(data_list):
         n = len(data_list)
         if n == 0: return 0.0, 0.0
@@ -764,6 +877,7 @@ def process_dataset(input_file, output_file):
     avg_space, sem_space = get_stats_sem(space_list)
     avg_cov, sem_cov = get_stats_sem(coverage_list)
     
+    # Calculate Conditional Match Stats
     avg_match, sem_match = get_stats_sem(conditional_match_list)
     
     elapsed = time.time() - start_time
@@ -774,9 +888,11 @@ def process_dataset(input_file, output_file):
     print(f"\nDone! Processed {len(data)} samples in {elapsed:.2f}s.")
     print(f"Excluded {ignored_count} samples (No pressure systems in Ref or Pred).")
     
+    print("\n--- FINAL SCORES ---")
     print("Scores reported as: Mean ± Standard Error (SEM)")
-    print(f"SPACE Score:  {avg_space:.4f} (± {sem_space:.4f})")
-    print(f"Coverage Ratio:        {avg_cov:.4f} (± {sem_cov:.4f})")
+    print(f"SPACE Score (Overall Quality):  {avg_space:.4f} (± {sem_space:.4f})")
+    print(f"Coverage Ratio (Recall):        {avg_cov:.4f} (± {sem_cov:.4f})")
+    print("-" * 30)
     print(f"Conditional Match Score:        {avg_match:.4f} (± {sem_match:.4f})")
     print(f"   (Calculated from {len(conditional_match_list)} samples where location was found)")
 

@@ -26,7 +26,8 @@ def get_location_from_filename(filename, station_map):
         return "the forecast area"
 
 def main(args):
-    MODEL_PATH = "/scratch/hay3fm/models/llava-13b" 
+    MODEL_PATH = "/scratch/hay3fm/models/llava-13b"
+    #MODEL_PATH = "/scratch/hay3fm/ablation/llava13B/merged-500"
     
     if not os.path.exists(MODEL_PATH):
         print(f"Local path {MODEL_PATH} not found. Trying HF Hub...")
@@ -47,7 +48,9 @@ def main(args):
     station_map = load_station_map(LOCATIONS_JSON_PATH)
 
     with open(args.manifest_json, 'r') as f:
-        test_data = json.load(f)
+        test_data = json.load(f)[:10000]
+    test_data = test_data
+    print(f"Data subset down to {len(test_data)} samples for ablation inference.")
         
     results = []
     processed_ids = set()
@@ -85,9 +88,7 @@ def main(args):
         location_name = get_location_from_filename(image_filename, station_map)
 
         prompt_text = (
-            f"USER: <image>\nAnalyze these weather charts for {location_name}. "
-            "Charts show mean 2 meter temperature (shaded), 500 mb geopotential height (contours), "
-            "and 850 mb winds (barbs). Generate a detailed forecast discussion of the large-scale features."
+            f"USER: <image>\nAnalyze these weather charts showing mean 2 meter temperature over the 2-day period (shaded contours), 500 mb geopotential height (unshaded contours), and 850 mb wind velocity (wind barbs) for the {location_name} forecast region and generate a detailed forecast discussion of the large-scale features relevant to the area. The forecast region is shown in the yellow box."
             "\nASSISTANT:"
         )
 
@@ -100,9 +101,9 @@ def main(args):
         with torch.inference_mode():
             output_ids = model.generate(
                 **inputs,
-                max_new_tokens=512,
+                max_new_tokens=256,
                 do_sample=False, # Deterministic
-                temperature=0.0
+                temperature=0.1
             )
 
         generated_text = processor.decode(

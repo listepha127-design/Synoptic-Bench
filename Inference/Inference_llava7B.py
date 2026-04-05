@@ -8,9 +8,8 @@ from tqdm import tqdm
 from PIL import Image
 from transformers import LlavaForConditionalGeneration, AutoProcessor
 
-# --- CONFIGURATION ---
 LOCATIONS_JSON_PATH = "/home/hay3fm/Projects/NWS_AFD/preprocessing/locations.json"
-CHECKPOINT_INTERVAL = 10  # Save progress every 20 items
+CHECKPOINT_INTERVAL = 20
 
 def load_station_map(json_path):
     if not os.path.exists(json_path): return {}
@@ -36,25 +35,22 @@ def atomic_save(data, filepath):
 
 def main(args):
     print(f"--- STANDARD INFERENCE (HF Format) ---")
-    
-    # 1. LOAD MODEL (Standard HF Way)
-    print(f"Loading model from: {args.model_path}")
+    MODEL_PATH = "llava-hf/llava-1.5-7b-hf"
+    #MODEL_PATH = "/scratch/hay3fm/ablation/llava7B/merged-500"
+    print(f"Loading model from: {MODEL_PATH}")
     model = LlavaForConditionalGeneration.from_pretrained(
-        args.model_path,
+        MODEL_PATH,
         torch_dtype=torch.float16,
-        device_map="cuda"
+        device_map="auto",
     )
     
-    print("Loading processor...")
-    processor = AutoProcessor.from_pretrained(args.model_path)
+    processor = AutoProcessor.from_pretrained(MODEL_PATH)
 
-    # 2. SETUP DATA
     station_map = load_station_map(LOCATIONS_JSON_PATH)
     
     with open(args.manifest_json, 'r') as f:
-        test_data = json.load(f)
+        test_data = json.load(f)[:]
         
-    # 3. RESUME LOGIC
     results = []
     processed_ids = set()
     
@@ -66,17 +62,13 @@ def main(args):
                 processed_ids = {item['id'] for item in existing_data}
             print(f"🔄 Resuming: Found {len(processed_ids)} already completed items.")
         except Exception as e:
-            print(f"⚠️ Warning: Output file exists but could not be read ({e}). Starting fresh.")
 
     save_counter = 0
 
-    # 4. INFERENCE LOOP
     for sample in tqdm(test_data, desc="Generating"):
-        # Skip if done
         if sample['id'] in processed_ids: 
             continue
 
-        # Load Image
         image_path = os.path.join(args.image_dir, sample['image'])
         if not os.path.exists(image_path): 
             continue
@@ -84,46 +76,35 @@ def main(args):
         try:
             image = Image.open(image_path).convert("RGB")
         except:
-            print(f"⚠️ Error reading image: {image_path}")
+            print(f"Error reading image: {image_path}")
             continue
 
-        # Prepare Prompt
         location_name = get_location_from_filename(sample['image'], station_map)
         
         user_prompt = (
-            f"Analyze these weather charts for {location_name}. "
-            "Charts show mean 2 meter temperature (shaded), 500 mb geopotential height (contours), "
-            "and 850 mb winds (barbs). Generate a detailed forecast discussion of the large-scale features."
+            f"Analyze these weather charts showing mean 2 meter temperature over the 2-day period (shaded contours), 500 mb geopotential height (unshaded contours), and 850 mb wind velocity (wind barbs) for the {location_name} forecast region and generate a detailed forecast discussion of the large-scale features relevant to the area. The forecast region is shown in the yellow box. "
         )
 
-        # Standard LLaVA 1.5 Prompt Format
-        # The processor expects <image> to denote where the image goes.
         prompt = f"USER: <image>\n{user_prompt}\nASSISTANT:"
 
-        # Process Inputs (Handles tokenization and image processing automatically)
         inputs = processor(text=prompt, images=image, return_tensors="pt").to("cuda", torch.float16)
 
-        # Generate
         with torch.inference_mode():
             generate_ids = model.generate(
                 **inputs,
-                max_new_tokens=512,
+                max_new_tokens=256,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.1,
                 top_p=0.9
             )
 
-        # Decode (The processor handles stripping special tokens)
         output_text = processor.batch_decode(generate_ids, skip_special_tokens=True)[0]
         
-        # Clean up: The output usually includes the prompt. We want just the response.
-        # Standard HF LLaVA decode often returns "USER: ... ASSISTANT: [Response]"
         if "ASSISTANT:" in output_text:
             response = output_text.split("ASSISTANT:")[-1].strip()
         else:
             response = output_text.strip()
 
-        # Save Result
         results.append({
             "id": sample['id'],
             "location": location_name,
@@ -131,19 +112,16 @@ def main(args):
             "reference": sample.get('conversations', [{}, {'value': ''}])[1]['value']
         })
         
-        # Atomic Save
         save_counter += 1
         if save_counter >= CHECKPOINT_INTERVAL:
             atomic_save(results, args.output_json)
             save_counter = 0
 
-    # Final Save
     atomic_save(results, args.output_json)
-    print(f"✅ Done! Results saved to {args.output_json}")
+    print(f"Results saved to {args.output_json}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the merged model folder")
     parser.add_argument("--manifest_json", type=str, required=True, help="Path to test data JSON")
     parser.add_argument("--output_json", type=str, required=True, help="Where to save results")
     parser.add_argument("--image_dir", type=str, required=True, help="Root folder of images")
