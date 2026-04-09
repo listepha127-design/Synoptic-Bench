@@ -13,19 +13,15 @@ Recent advances in visual-language models (VLMs) have led to significant improve
 
 
 
-## Model Weights
+## Data and Model Weights
 
-The saved model weights are currently stored internally.
-
-## Data
-
-The full dataset is currently stored internally.
+The full dataset including saved model weights can be found at https://huggingface.co/datasets/Aikyam-Lab/Synoptic-Bench.
 
 ## Train
 
-We finetune LLaVA-v1.5-7B, LLaVA-v1.5-13B, Qwen3-VL-7B, and LLaMA-3.2-11B with 1 NVIDIA A100 GPU. The code and training parameters to train each model is in the "train" folder
+We finetune LLaVA-v1.5-7B, LLaVA-v1.5-13B, Qwen3-VL-7B, and LLaMA-3.2-11B with 1 NVIDIA H200 GPU. The code and training parameters to train each model is in the "train" folder.
 
 ## Evaluation
 
-We use Synoptic Phenomena Alignment and Coverage Evaluation (SPACE) for evaluation. The code to run SPACE is in the "SPACE" folder
+We use Synoptic Phenomena Alignment and Coverage Evaluation (SPACE) for evaluation. The code to run SPACE is in the "SPACE" folder.
 
