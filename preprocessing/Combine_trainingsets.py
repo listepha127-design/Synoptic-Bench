@@ -9,11 +9,9 @@ import gc
 import sys
 import glob
 
-print("=== SCRIPT STARTING ===", flush=True)
 print(f"Python path: {sys.executable}", flush=True)
 print(f"Working directory: {os.getcwd()}", flush=True)
 
-# --- CONFIGURATION ---
 # Update these paths to match your actual data locations
 AFD_DIRECTORY = '/scratch/hay3fm/afd_data_cleaned/'
 GFS_DIRECTORY = '/scratch/hay3fm/gfs_zarr/Multimodal/gfs_2019.h5'  # Directory containing your individual .h5 files
