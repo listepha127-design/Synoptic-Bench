@@ -30,4 +30,5 @@ We use Synoptic Phenomena Alignment and Coverage Evaluation (SPACE) for evaluati
 Step 1: Download one or more of the .hdf5 files from https://huggingface.co/datasets/Aikyam-Lab/Synoptic-Bench
 Step 2: Run the prepare_dataset_in_parallel_synoptic.py script. It is recommended that this is run in parallel due to the size of the dataset. The climatology_means.h5 file can be used as the climatology file. This will create a .json file with text and the paths to a folder containing .png images.
 Step 3: Run Add_locations.py to add the specific locations into the text prompts.
+Step 4: Run qc_filter.py, qc_temporal.py, and quality_control.py on the .json file to ensure that the dataset fits the desired purpose.
 
