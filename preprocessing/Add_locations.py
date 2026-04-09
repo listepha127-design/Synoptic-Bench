@@ -2,7 +2,6 @@ import json
 import os
 from tqdm import tqdm
 
-# --- CONFIGURATION: HARDCODE YOUR PATHS HERE ---
 
 # 1. Location Map
 LOCATION_MAP_PATH = 'locations.json'

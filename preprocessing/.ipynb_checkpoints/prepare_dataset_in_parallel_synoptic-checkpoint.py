@@ -10,6 +10,7 @@ import re
 from tqdm import tqdm
 import argparse
 
+# --- CONFIGURATION ---
 DAYS_MAP = {
     'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6,
     'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6
@@ -212,6 +213,7 @@ if __name__ == "__main__":
             sample = f[sample_key]
             afd_data = sample['associated_afds'][afd_key]
             
+            # --- DATE DETECTION ---
             if sample_key != current_sample_key:
                 current_sample_key = sample_key
                 current_issue_day_idx, current_issue_month_idx, current_date_str = determine_issue_info(sample['associated_afds'])
@@ -219,6 +221,7 @@ if __name__ == "__main__":
             if current_issue_month_idx is None:
                 continue
 
+            # --- LOAD FORECAST ---
             try:
                 raw_data = {'GH500': [], 'U850': [], 'V850': [], 't2m': []}
                 valid_sample = True
@@ -254,6 +257,7 @@ if __name__ == "__main__":
                 't2m_anomaly': t2m_anomaly
             }
 
+            # --- TEXT PROCESSING ---
             text_bytes = afd_data['afd_text'][()]
             afd_text = text_bytes.decode('utf-8') if isinstance(text_bytes, bytes) else text_bytes
             
