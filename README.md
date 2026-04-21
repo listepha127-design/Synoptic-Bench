@@ -42,6 +42,15 @@ Recent advances in visual-language models (VLMs) have led to significant improve
 2. **Synoptic Phenomena Evaluation Framework:** We created an evaluation framework: Synoptic Phase Alignment and Coverage Evaluation (SPACE) to evaluate the ability of generated text to describe the correct polarity and location of synoptic weather phenomena
 3. **Model Benchmarking:** We finetune four open-source Vision Language models to generate forecast discussions and evaluate them along with base model versions and four different baselines: Gemini-3.1-Pro, Nearest Neighbor, Climatology, and Blind LLM
 
+## SynopticBench vs Other Benchmarks
+
+<img src="./Images/Table1.png" width="500px"></img>
+
+1. SynopticBench is the first multimodal benchmark to use images of atmospheric conditions predicted into the future.
+2. There are a total of 1,367,041 text samples, which exceeds the number of samples in all other studies.
+3. Many other benchmarks focus on extreme events while SynopticBench focuses on day-to-day weather conditions.
+
+
 ## Contents
 - [Data and Weights](#Pretrained_models)
 - [Train](#train)
