@@ -50,6 +50,34 @@ Recent advances in visual-language models (VLMs) have led to significant improve
 2. There are a total of 1,367,041 text samples, which exceeds the number of samples in all other studies.
 3. Many other benchmarks focus on extreme events while SynopticBench focuses on day-to-day weather conditions.
 
+## Installation
+
+### Prerequisites
+- Python 3.8 or higher
+- CUDA-capable GPU (recommended for model inference)
+- Git
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/timbhiggins/Synoptic-Bench
+cd Synoptic-Bench
+```
+
+2. Create a virtual environment (recommended):
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+**Note:** For CUDA support with PyTorch, you may need to install PyTorch separately based on your CUDA version. Visit [PyTorch's official website](https://pytorch.org/get-started/locally/) for installation instructions.
+
 
 ## Contents
 - [Data and Weights](#Pretrained_models)
