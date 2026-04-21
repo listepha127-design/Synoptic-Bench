@@ -32,9 +32,15 @@
 
 <img src="./Images/VLM_Fig1.png" width="500px"></img>
 
-## Synoptic-Bench
+## Abstract
 
 Recent advances in visual-language models (VLMs) have led to significant improvements in a plethora of complex multimodal tasks like image captioning, report generation, and visual perception. However, generating text from meteorological data is highly challenging because the atmosphere is a chaotic system that is rapidly changing at various spatial and temporal scales. Given the complexity of atmospheric phenomena, it is critical to verifiably quantify the effectiveness of existing VLMs on weather forecasting data. In this work, we present Synoptic-Bench, a high-quality dataset consisting of 1,367,041 text samples of Advanced Forecast Discussions created by the National Weather Service over the continental United States paired to images of 500mb geopotential height, 2 meter temperature, and 850mb wind velocity in weather forecasts. We also present Synoptic Phenomena Alignment and Coverage Evaluation (SPACE), a novel evaluation framework that can be used to effectively estimate the quality of text descriptions of synoptic weather phenomena. Extensive experiments on generating forecast discussions using state-of-the-art VLMs show the sensitivity of existing evaluation metrics in this domain and enable further exploration into synoptic weather and climate text generation.
+
+## Key Contributions
+
+1. **Comprehensive Multimodal Weather Discussion Dataset:** We introduce the largest multimodal atmospheric dataset to date by pairing National Weather Service Area Forecast Discussions (AFDs) to Global Forecast System (GFS) images. The dataset contains 1,367,041 text samples.
+2. **Synoptic Phenomena Evaluation Framework:** We created an evaluation framework: Synoptic Phase Alignment and Coverage Evaluation (SPACE) to evaluate the ability of generated text to describe the correct polarity and location of synoptic weather phenomena
+3. **Model Benchmarking:** We finetune four open-source Vision Language models to generate forecast discussions and evaluate them along with base model versions and four different baselines: Gemini-3.1-Pro, Nearest Neighbor, Climatology, and Blind LLM
 
 ## Contents
 - [Data and Weights](#Pretrained_models)
