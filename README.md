@@ -21,7 +21,7 @@
 
   <!-- Dataset Badge -->
   <br><br>
-  <a href="https://huggingface.co/datasets/Agcs12/CLINIC">
+  <a href="https://huggingface.co/datasets/Aikyam-Lab/Synoptic-Bench">
     <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Datasets-SynopticBench-E9C300?labelColor=444444" alt="SynopticBench Dataset">
   </a>
 <a href="https://arxiv.org/abs/2604.16451">
