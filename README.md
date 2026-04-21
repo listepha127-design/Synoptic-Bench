@@ -1,4 +1,36 @@
-<img src="./Images/VLM_Fig1.pdf" width="500px"></img>
+<p align="center">
+  
+  <a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash">
+    <img src="https://img.shields.io/badge/Model-Gemini--2.5--Flash-2EAF37" alt="Gemini 2.5 Flash">
+  </a>
+  <a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-1-pro">
+    <img src="https://img.shields.io/badge/Model-Gemini--3.1--Pro-2EAF37" alt="Gemini 3.1 Pro">
+  </a>
+  <a href="https://huggingface.co/meta-llama/Llama-3.2-11B">
+    <img src="https://img.shields.io/badge/Model-LLaMA--3.2--11B-2EAF37" alt="LLaMA 3.2 11B">
+  </a>
+  <a href="https://huggingface.co/Qwen/Qwen2-7B-Instruct">
+    <img src="https://img.shields.io/badge/Model-Qwen2--7B-2EAF37" alt="Qwen2 7B">
+  </a>
+  <a href="https://huggingface.co/llava-hf/llava-1.5-7b-hf">
+    <img src="https://img.shields.io/badge/Model-Llava1.5--7B-2EAF37" alt="Llava1.5 7B">
+  </a>
+  <a href="https://huggingface.co/llava-hf/llava-1.5-13b-hf">
+    <img src="https://img.shields.io/badge/Model-Llava1.5--13B-2EAF37" alt="Llava1.5 13B">
+  </a>
+
+  <!-- Dataset Badge -->
+  <br><br>
+  <a href="https://huggingface.co/datasets/Agcs12/CLINIC">
+    <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Datasets-SynopticBench-E9C300?labelColor=444444" alt="SynopticBench Dataset">
+  </a>
+<a href="https://arxiv.org/abs/2604.16451">
+  <img src="https://img.shields.io/badge/📄%20arXiv-2604.16451-B31B1B?labelColor=444444" alt="arXiv Paper">
+</a>
+
+</p>
+
+<img src="./Images/VLM_Fig1.png" width="500px"></img>
 
 ## Synoptic-Bench
 
