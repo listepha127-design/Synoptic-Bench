@@ -1,0 +1,18 @@
+# Local datasets and generated artifacts
+data/
+outputs/
+
+# Local model weights and checkpoints
+Qwen2-VL-7B-Instruct/
+qwen2_final_checkpoint/
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local environment and logs
+.env
+.env.*
+*.log
+.DS_Store
