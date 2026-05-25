@@ -1,6 +1,7 @@
 # Local datasets and generated artifacts
 data/
 outputs/
+hf_preview/
 
 # Local model weights and checkpoints
 Qwen2-VL-7B-Instruct/
