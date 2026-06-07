@@ -34,7 +34,8 @@ def decode_h5(value):
     return value.decode("utf-8") if isinstance(value, bytes) else value
 
 
-def load_targets(hdf5_dir):
+def load_targets(hdf5_dir, target_ids=None):
+    target_ids = set(target_ids or [])
     targets_by_sample = defaultdict(lambda: defaultdict(list))
     split_counts = {}
 
@@ -45,6 +46,8 @@ def load_targets(hdf5_dir):
 
         split_counts[split] = len(items)
         for item in items:
+            if target_ids and item.get("id") not in target_ids:
+                continue
             parsed = parse_id(item.get("id", ""))
             if parsed is None:
                 continue
@@ -107,7 +110,7 @@ def generate_images(args):
         (output_root / split).mkdir(parents=True, exist_ok=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
-    targets_by_sample, split_counts = load_targets(hdf5_dir)
+    targets_by_sample, split_counts = load_targets(hdf5_dir, args.target_id)
 
     report = {
         "input_dir": str(hdf5_dir),
@@ -126,6 +129,10 @@ def generate_images(args):
         climo_means = f_clim["monthly_t2m_means"][:]
 
     hdf5_files = collect_hdf5_files(hdf5_dir, set(args.skip_hdf5))
+    target_hdf5 = args.target_hdf5
+    hdf5_files = [p for p in hdf5_files if p.name == target_hdf5]
+    if not hdf5_files:
+        print(f"Warning: {target_hdf5} not found in {hdf5_dir}")
     for hdf5_path in hdf5_files:
         file_report = {
             "samples_seen": 0,
@@ -237,10 +244,12 @@ def main():
     parser.add_argument("--climo_file", default="climatology_means.h5")
     parser.add_argument("--output_root", default="data/images/American")
     parser.add_argument("--report_path", default="data/images/American/generation_report.json")
+    parser.add_argument("--target_hdf5", default="training_data_2020_jul_dec.hdf5")
+    parser.add_argument("--target_id", nargs="*", default=[], help="Only generate images for these manifest ids.")
     parser.add_argument(
         "--skip_hdf5",
         nargs="*",
-        default=["training_data_2020_jul_dec.hdf5"],
+        default=[],
         help="HDF5 file names to skip. .part files are ignored automatically.",
     )
     parser.add_argument("--box_buffer", type=float, default=2.5)

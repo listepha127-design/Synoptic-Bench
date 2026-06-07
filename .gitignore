@@ -2,6 +2,7 @@
 data/
 outputs/
 hf_preview/
+saves/
 
 # Local model weights and checkpoints
 Qwen2-VL-7B-Instruct/
